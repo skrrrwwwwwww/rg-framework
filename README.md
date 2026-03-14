@@ -1,4 +1,4 @@
-# RG Framework v5.0
+# RG Framework
 
 Генератор отчетов с графическим интерфейсом на PyQt.
 
