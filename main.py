@@ -12,7 +12,6 @@ from blocks import (
 from datetime import datetime
 import os
 
-
 def ask_nonempty(prompt):
     """Запрашивает непустой ввод от пользователя"""
     while True:
