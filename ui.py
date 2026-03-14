@@ -3,16 +3,16 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import *
+from PyQt6.QtGui import QShortcut, QKeySequence, QAction
 from PyQt6.QtWidgets import *
 
 from blocks import *
 from builder import DocBuilder
 
-
 class ReportGeneratorUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Генератор отчетов v2.0")
+        self.setWindowTitle("Генератор отчетов v5.0")
         self.setGeometry(100, 100, 800, 600)
 
         self.sections_content = {}  # {название_раздела: текст}
@@ -31,16 +31,16 @@ class ReportGeneratorUI(QMainWindow):
         layout.addWidget(title)
 
         # Табы для разных разделов
-        tabs = QTabWidget()
-        layout.addWidget(tabs)
+        self.tabs = QTabWidget()  # ← сохраняем в self!
+        layout.addWidget(self.tabs)
 
         # Вкладка "Основное"
         main_tab = self.create_main_tab()
-        tabs.addTab(main_tab, "📋 Основное")
+        self.tabs.addTab(main_tab, "📋 Основное")
 
         # Вкладка "Разделы"
         sections_tab = self.create_sections_tab()
-        tabs.addTab(sections_tab, "📑 Разделы")
+        self.tabs.addTab(sections_tab, "📑 Разделы")
 
         # Кнопка генерации
         self.generate_btn = QPushButton("🚀 СГЕНЕРИРОВАТЬ ОТЧЕТ")
@@ -66,6 +66,91 @@ class ReportGeneratorUI(QMainWindow):
         # Устанавливаем фильтры событий для автозаполнения
         self.setup_event_filters()
 
+        # СОЗДАЕМ МЕНЮ (там же будут хоткеи)
+        self.create_menu()
+
+        # Устанавливаем фокус (ОДИН РАЗ)
+        self.subject.setFocus()
+
+        # Показываем подсказку
+        self.statusBar().showMessage("Ctrl+S - сгенерировать | F5 - все лабы | Ctrl+N - сброс")
+
+    def create_shortcuts(self):
+        """Создает горячие клавиши"""
+
+        # Ctrl+N - новый отчет (сброс)
+        new_shortcut = QShortcut(QKeySequence("Ctrl+N"), self)
+        new_shortcut.activated.connect(self.reset_form)
+
+        # Ctrl+S - сохранить/сгенерировать
+        save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        save_shortcut.activated.connect(self.generate_report)
+
+        # Ctrl+Q - выход
+        quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
+        quit_shortcut.activated.connect(self.close)
+
+        # F5 - создать все лабы
+        create_all_shortcut = QShortcut(QKeySequence("F5"), self)
+        create_all_shortcut.activated.connect(self.create_all_labs)
+
+        # Ctrl+T - добавить раздел
+        add_section_shortcut = QShortcut(QKeySequence("Ctrl+T"), self)
+        add_section_shortcut.activated.connect(self.add_section)
+
+        # Ctrl+R - удалить раздел
+        remove_section_shortcut = QShortcut(QKeySequence("Ctrl+R"), self)
+        remove_section_shortcut.activated.connect(self.remove_section)
+
+        # Ctrl+E - редактировать раздел
+        edit_section_shortcut = QShortcut(QKeySequence("Ctrl+E"), self)
+        edit_section_shortcut.activated.connect(self.open_section_window)
+
+        # Alt+1 - перейти на вкладку "Основное"
+        tab1_shortcut = QShortcut(QKeySequence("Alt+1"), self)
+        tab1_shortcut.activated.connect(lambda: self.tabs.setCurrentIndex(0))
+
+        # Alt+2 - перейти на вкладку "Разделы"
+        tab2_shortcut = QShortcut(QKeySequence("Alt+2"), self)
+        tab2_shortcut.activated.connect(lambda: self.tabs.setCurrentIndex(1))
+
+    def reset_form(self):
+        """Сбрасывает форму к значениям по умолчанию"""
+        reply = QMessageBox.question(self, "Сброс",
+                                     "Сбросить все поля к значениям по умолчанию?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.subject.setText("Технология объектного программирования")
+            self.work_type.setCurrentIndex(0)
+            self.work_number.setValue(1)
+            self.student.setText("Шикарев Иван А")
+            self.group.setText("ПО1-23")
+            self.teacher.setPlainText("доц. Свириденкова М.А., асс. Денисова И.А.")
+            self.variant.setValue(17)
+            self.no_variant.setChecked(False)
+            self.include_toc.setChecked(True)
+
+            # Очищаем разделы
+            self.sections_list.clear()
+            self.sections_content.clear()
+
+            QMessageBox.information(self, "Готово", "Форма сброшена")
+
+    def keyPressEvent(self, event):
+        """Обработка клавиш"""
+        if event.key() == Qt.Key.Key_Up and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Ctrl+Up - предыдущее поле
+            self.focusPreviousChild()
+        elif event.key() == Qt.Key.Key_Down and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Ctrl+Down - следующее поле
+            self.focusNextChild()
+        elif event.key() == Qt.Key.Key_Return and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Ctrl+Enter - сгенерировать
+            self.generate_report()
+        else:
+            super().keyPressEvent(event)
+
     def setup_event_filters(self):
         """Устанавливает фильтры событий для полей ввода"""
         fields = [
@@ -80,9 +165,9 @@ class ReportGeneratorUI(QMainWindow):
         layout = QFormLayout(widget)
         layout.setSpacing(15)
 
-        # Поля ввода
         self.subject = QLineEdit()
         self.subject.setPlaceholderText("Технология объектного программирования")
+        self.subject.setToolTip("Ctrl+↑/↓ - навигация, Tab - автозаполнение")
         self.subject.mousePressEvent = lambda e: self.subject.selectAll()
         layout.addRow("Дисциплина:", self.subject)
 
@@ -186,6 +271,107 @@ class ReportGeneratorUI(QMainWindow):
         layout.addRow("", self.include_toc)
 
         return widget
+
+    def create_menu(self):
+        """Создает меню приложения"""
+        menubar = self.menuBar()
+
+        # Меню "Файл"
+        file_menu = menubar.addMenu("📁 Файл")
+
+        new_action = QAction("🆕 Новый", self)
+        new_action.setShortcut("Ctrl+N")
+        new_action.triggered.connect(self.reset_form)
+        file_menu.addAction(new_action)
+
+        save_action = QAction("💾 Сгенерировать", self)
+        save_action.setShortcut("Ctrl+S")
+        save_action.triggered.connect(self.generate_report)
+        file_menu.addAction(save_action)
+
+        file_menu.addSeparator()
+
+        quit_action = QAction("🚪 Выход", self)
+        quit_action.setShortcut("Ctrl+Q")
+        quit_action.triggered.connect(self.close)
+        file_menu.addAction(quit_action)
+
+        # Меню "Разделы"
+        sections_menu = menubar.addMenu("📚 Разделы")
+
+        add_section_action = QAction("➕ Добавить раздел", self)
+        add_section_action.setShortcut("Ctrl+T")
+        add_section_action.triggered.connect(self.add_section)
+        sections_menu.addAction(add_section_action)
+
+        edit_section_action = QAction("✏️ Редактировать", self)
+        edit_section_action.setShortcut("Ctrl+E")
+        edit_section_action.triggered.connect(self.open_section_window)
+        sections_menu.addAction(edit_section_action)
+
+        remove_section_action = QAction("➖ Удалить", self)
+        remove_section_action.setShortcut("Ctrl+R")
+        remove_section_action.triggered.connect(self.remove_section)
+        sections_menu.addAction(remove_section_action)
+
+        # Меню "Вид" (с Alt+1, Alt+2)
+        view_menu = menubar.addMenu("👁️ Вид")
+
+        main_tab_action = QAction("📋 Основное", self)
+        main_tab_action.setShortcut("Alt+1")
+        main_tab_action.triggered.connect(lambda: self.tabs.setCurrentIndex(0))
+        view_menu.addAction(main_tab_action)
+
+        sections_tab_action = QAction("📑 Разделы", self)
+        sections_tab_action.setShortcut("Alt+2")
+        sections_tab_action.triggered.connect(lambda: self.tabs.setCurrentIndex(1))
+        view_menu.addAction(sections_tab_action)
+
+        # Меню "Справка"
+        help_menu = menubar.addMenu("❓ Справка")
+
+        shortcuts_action = QAction("⌨️ Горячие клавиши", self)
+        shortcuts_action.triggered.connect(self.show_shortcuts)
+        help_menu.addAction(shortcuts_action)
+
+        # Добавляем все действия в окно для глобального перехвата
+        self.addAction(new_action)
+        self.addAction(save_action)
+        self.addAction(quit_action)
+        self.addAction(add_section_action)
+        self.addAction(edit_section_action)
+        self.addAction(remove_section_action)
+        self.addAction(main_tab_action)
+        self.addAction(sections_tab_action)
+
+    def show_shortcuts(self):
+        """Показывает список горячих клавиш"""
+        shortcuts_text = """
+        <h3>⌨️ Горячие клавиши</h3>
+
+        <b>Навигация:</b>
+        • Tab - автозаполнение/следующее поле
+        • Ctrl+↑/↓ - навигация по полям
+        • Alt+1 - вкладка "Основное"
+        • Alt+2 - вкладка "Разделы"
+
+        <b>Действия:</b>
+        • Ctrl+S - сгенерировать отчет
+        • Ctrl+N - новый отчет (сброс)
+        • Ctrl+Q - выход
+
+        <b>Разделы:</b>
+        • Ctrl+T - добавить раздел
+        • Ctrl+E - редактировать раздел
+        • Ctrl+R - удалить раздел
+        • F5 - создать все лабы
+
+        <b>В окне раздела:</b>
+        • Ctrl+Enter - сохранить и закрыть
+        • Esc - закрыть без сохранения
+        """
+
+        QMessageBox.information(self, "Горячие клавиши", shortcuts_text)
 
     def eventFilter(self, obj, event):
         """Автозаполнение по Tab"""
@@ -427,7 +613,8 @@ class ReportGeneratorUI(QMainWindow):
     def fill_section_content(self, doc, section_name):
         """Интерактивное наполнение раздела контентом"""
 
-        # Создаем диалог
+        # Убираем while True - он вызывает переполнение стека!
+
         dialog = QDialog(self)
         dialog.setWindowTitle(f"📝 Наполнение: {section_name}")
         dialog.setModal(True)
@@ -437,7 +624,7 @@ class ReportGeneratorUI(QMainWindow):
         layout = QVBoxLayout(dialog)
         layout.setSpacing(10)
 
-        # Заголовок (используем обычный QLabel без HTML)
+        # Заголовок
         label = QLabel(f"Добавление контента в раздел:\n«{section_name}»")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("""
@@ -451,30 +638,32 @@ class ReportGeneratorUI(QMainWindow):
         """)
         layout.addWidget(label)
 
-        # Кнопки контента
+        # Кнопки контента (сохраняем doc в локальной переменной)
+        current_doc = doc  # фиксируем doc для лямбд
+
         btn_text = QPushButton("📝 Добавить текст")
         btn_text.setMinimumHeight(45)
-        btn_text.clicked.connect(lambda: self.add_text(doc))
+        btn_text.clicked.connect(lambda: self.add_text(current_doc))
         layout.addWidget(btn_text)
 
         btn_table = QPushButton("📊 Добавить таблицу")
         btn_table.setMinimumHeight(45)
-        btn_table.clicked.connect(lambda: self.add_table(doc))
+        btn_table.clicked.connect(lambda: self.add_table(current_doc))
         layout.addWidget(btn_table)
 
         btn_formula = QPushButton("🧮 Добавить формулу")
         btn_formula.setMinimumHeight(45)
-        btn_formula.clicked.connect(lambda: self.add_formula(doc))
+        btn_formula.clicked.connect(lambda: self.add_formula(current_doc))
         layout.addWidget(btn_formula)
 
         btn_image = QPushButton("🖼️ Место для скриншота")
         btn_image.setMinimumHeight(45)
-        btn_image.clicked.connect(lambda: self.add_image(doc))
+        btn_image.clicked.connect(lambda: self.add_image(current_doc))
         layout.addWidget(btn_image)
 
         btn_list = QPushButton("📋 Добавить список")
         btn_list.setMinimumHeight(45)
-        btn_list.clicked.connect(lambda: self.add_list(doc))
+        btn_list.clicked.connect(lambda: self.add_list(current_doc))
         layout.addWidget(btn_list)
 
         # Растягивающееся пространство
@@ -504,7 +693,7 @@ class ReportGeneratorUI(QMainWindow):
         btn_done.clicked.connect(dialog.accept)
         layout.addWidget(btn_done)
 
-        # Показываем диалог
+        # Показываем диалог один раз!
         dialog.exec()
 
     def auto_fill_empty_fields(self):
