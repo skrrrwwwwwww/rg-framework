@@ -13,7 +13,8 @@ class DocBuilder:
     MINISTRY = "МИНИСТЕРСТВО НАУКИ И ВЫСШЕГО ОБРАЗОВАНИЯ РФ"
     UNIVERSITY = (
         "филиал федерального государственного бюджетного образовательного "
-        "учреждения высшего образования «НИУ МЭИ» в г. Смоленске"
+        "учреждения высшего образования «Национальный исследовательский "
+        "университет «МЭИ» в г. Смоленске"
     )
     DEPARTMENT = "Кафедра вычислительной техники"
     DEFAULT_CITY = "Смоленск"
@@ -118,6 +119,7 @@ class DocBuilder:
             size: int = 14,
             space_before: int = 0,
             space_after: int = 0,
+            line_spacing: str = "single"
     ):
         p = self.doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -126,7 +128,11 @@ class DocBuilder:
         pf.first_line_indent = Cm(0)
         pf.keep_together = True
         pf.widow_control = True
-        pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        # Выбор интервала
+        if line_spacing == "one_point_five":
+            pf.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+        else:  # single по умолчанию
+            pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
         pf.space_before = Pt(space_before)
         pf.space_after = Pt(space_after)
 
@@ -146,16 +152,16 @@ class DocBuilder:
     def _add_title_page(self):
         m = self.meta
 
-        self._center_text(self.MINISTRY, bold=True, space_after=12)
-        self._center_text(self.UNIVERSITY, space_after=36)
-        self._center_text(self.DEPARTMENT, space_after=72)
+        self._center_text(self.MINISTRY, bold=False, space_after=0, line_spacing="one_point_five")
+        self._center_text(self.UNIVERSITY, space_after=36, line_spacing="one_point_five")
+        self._center_text(self.DEPARTMENT, space_after=72, line_spacing="one_point_five")
 
-        self._center_text(m["work_type"], bold=True, size=16, space_after=12)
+        self._center_text(m["work_type"], bold=False, size=14, space_after=0, line_spacing="one_point_five")
 
         if m["work_title"]:
-            self._center_text(m["work_title"], bold=True, space_after=12)
+            self._center_text(m["work_title"], bold=True, space_after=12, line_spacing="one_point_five")
 
-        self._center_text(f'по дисциплине «{m["subject"]}»', space_after=180)
+        self._center_text(f'по дисциплине «{m["subject"]}»', space_after=174, line_spacing="one_point_five")
 
         p = self.doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -164,8 +170,8 @@ class DocBuilder:
         pf.first_line_indent = Cm(0)
         pf.keep_together = True
         pf.widow_control = True
-        pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
-        pf.space_after = Pt(120)
+        pf.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+        pf.space_after = Pt(100)  # ← УМЕНЬШИТЬ С 120 ДО 60
 
         lines = []
         if m["group"]:
@@ -181,7 +187,7 @@ class DocBuilder:
         run.font.name = "Times New Roman"
         run.font.size = Pt(14)
 
-        self._center_text(f'{m["city"]}, {m["year"]} г.')
+        self._center_text(f'{m["city"]}, {m["year"]} г.', line_spacing="single")
         self.doc.add_page_break()
 
     def _clear_paragraph(self, paragraph):
@@ -311,7 +317,7 @@ class DocBuilder:
         # Сокращаем дисциплину (первые буквы)
         subject_short = self._shorten_subject(m["subject"])
 
-        student_for_filename = self.raw_data["student"]
+        student_for_filename = self._format_name_for_filename(self.raw_data["student"])
 
         # Собираем имя файла
         parts = [
@@ -345,5 +351,21 @@ class DocBuilder:
             filename = self._build_default_filename()
 
         path = build_dir / filename
-        self.doc.save(path)
-        return str(path)
+
+        # Если файл существует и заблокирован, создаем уникальное имя
+        counter = 1
+        while True:
+            try:
+                # Пробуем сохранить
+                self.doc.save(str(path))
+                return str(path)
+            except PermissionError:
+                # Если файл заблокирован, добавляем номер
+                name_without_ext = path.stem
+                ext = path.suffix
+                new_filename = f"{name_without_ext}_{counter}{ext}"
+                path = build_dir / new_filename
+                counter += 1
+            except Exception as e:
+                # Другие ошибки
+                raise e
