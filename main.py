@@ -65,21 +65,138 @@ def ask_yes_no(prompt, default=True):
         print("Пожалуйста, ответьте y или n")
 
 
+def ask_sections():
+    """Пользователь вводит разделы отчета"""
+    sections = []
+    print("\n📑 Введите названия разделов отчета")
+    print("   (пустая строка - закончить ввод)\n")
+
+    while True:
+        section = input(f"Раздел {len(sections) + 1}: ").strip()
+        if not section:
+            if len(sections) == 0:
+                print("❌ Нужно добавить хотя бы один раздел!")
+                continue
+            break
+        sections.append(section)
+
+    return sections
+
+
+def fill_section_interactively(doc, section_name):
+    """Интерактивное наполнение раздела"""
+    print(f"\n📝 Наполнение раздела: {section_name}")
+
+    while True:
+        print("\nЧто добавить в раздел?")
+        print("1. Подраздел")
+        print("2. Текст")
+        print("3. Нумерованный список")
+        print("4. Таблицу")
+        print("5. Место для скриншота")
+        print("6. Формулу")
+        print("7. Разрыв страницы")
+        print("0. Закончить раздел")
+
+        choice = input("Выберите (0-7): ").strip()
+
+        if choice == "0":
+            break
+        elif choice == "1":
+            level = input("Уровень подраздела (2-5): ").strip()
+            try:
+                level = int(level)
+                if level < 2 or level > 5:
+                    level = 2
+            except:
+                level = 2
+            title = input("Название подраздела: ").strip()
+            if title:
+                doc.add(Heading(title, level=level))
+        elif choice == "2":
+            text = input("Текст: ").strip()
+            if text:
+                doc.add(Paragraph(text))
+        elif choice == "3":
+            items = []
+            print("Введите элементы списка (пустая строка - конец):")
+            while True:
+                item = input("- ").strip()
+                if not item:
+                    break
+                items.append(item)
+            if items:
+                doc.add(NumberedList(items))
+        elif choice == "4":
+            cols = input("Количество колонок (2-5): ").strip()
+            try:
+                cols = int(cols)
+                if cols < 2 or cols > 5:
+                    cols = 3
+            except:
+                cols = 3
+
+            rows = input("Количество строк данных: ").strip()
+            try:
+                rows = int(rows)
+                if rows < 1:
+                    rows = 3
+            except:
+                rows = 3
+
+            # Создаем заголовки
+            headers = []
+            for i in range(cols):
+                header = input(f"Название колонки {i + 1}: ").strip()
+                headers.append(header if header else f"Колонка {i + 1}")
+
+            # Создаем данные
+            table_data = [headers]
+            for i in range(rows):
+                row = []
+                for j in range(cols):
+                    row.append(f"[{headers[j]}_{i + 1}]")
+                table_data.append(row)
+
+            title = input("Название таблицы: ").strip()
+            doc.add(Table(title if title else "Результаты", table_data))
+        elif choice == "5":
+            caption = input("Подпись к рисунку: ").strip()
+            height = input("Высота (строк, Enter=5): ").strip()
+            try:
+                height = int(height)
+            except:
+                height = 5
+            doc.add(ImagePlaceholder(caption if caption else "Скриншот", height))
+        elif choice == "6":
+            formula = input("Формула (например y = ax + b): ").strip()
+            explanation = input("Пояснение к формуле (Enter - пропустить): ").strip()
+            doc.add(Formula(
+                formula if formula else "y = f(x)",
+                explanation=explanation if explanation else None
+            ))
+        elif choice == "7":
+            doc.add(PageBreak())
+        else:
+            print("Неверный выбор, попробуйте снова")
+
+
 def main():
     """Основная функция создания документа"""
-    print("=" * 50)
-    print("СОЗДАНИЕ ОТЧЕТА ПО ЛАБОРАТОРНОЙ РАБОТЕ")
-    print("=" * 50)
+    print("=" * 60)
+    print("🔧 КОНСТРУКТОР ОТЧЕТОВ 🔧")
+    print("=" * 60)
 
     # Сбор информации
+    print("\n📋 ОСНОВНАЯ ИНФОРМАЦИЯ")
     subject = ask_nonempty("Дисциплина: ")
-    work_type = ask_nonempty("Тип работы (например ЛР 1): ")
-    student = ask_nonempty("Студент: ")
+    work_type = ask_nonempty("Тип работы (например Лабораторная работа 1): ")
+    student = ask_nonempty("Студент (Фамилия Имя О): ")
     group = ask_nonempty("Группа: ")
     teacher = ask_teachers()
-    variant = ask_optional_int("Вариант (Enter = без варианта): ")
+    variant = ask_optional_int("Вариант (Enter = 17): ", default=17)
     year = ask_optional_int(f"Год (Enter = {datetime.now().year}): ",
-                           default=datetime.now().year)
+                            default=datetime.now().year)
 
     # Создание документа
     doc = DocBuilder(
@@ -92,81 +209,40 @@ def main():
         year=year,
     )
 
-    # Добавление содержания
-    doc.add(TableOfContents())
+    # Оглавление
+    print("\n📑 ОГЛАВЛЕНИЕ")
+    include_toc = ask_yes_no("Добавить оглавление", default=True)
+    if include_toc:
+        doc.add(TableOfContents())
 
-    # Введение
-    doc.add(Heading("Введение", level=1))
-    doc.add(Paragraph(
-        f"В настоящем отчете рассматривается выполнение {work_type.lower()} "
-        f"по дисциплине «{subject}». Ниже приведены теоретические "
-        f"сведения, ход выполнения и результаты работы."
-    ))
+    # Ввод разделов
+    print("\n📄 СТРУКТУРА ОТЧЕТА")
+    sections = ask_sections()
 
-    # Теоретические сведения
-    doc.add(Heading("Теоретические сведения", level=1))
+    # Наполнение разделов
+    for i, section in enumerate(sections, 1):
+        print(f"\n{'=' * 60}")
+        print(f"📌 РАЗДЕЛ {i}/{len(sections)}: {section}")
+        print(f"{'=' * 60}")
 
-    if ask_yes_no("\nДобавить раздел 'Основные положения'?"):
-        doc.add(Heading("Основные положения", level=2))
-        points = []
-        print("Введите основные положения (пустая строка завершает ввод):")
-        while True:
-            point = input("- ").strip()
-            if not point:
-                break
-            points.append(point)
-        if points:
-            doc.add(NumberedList(points))
-
-    doc.add(Heading("Расчетные зависимости", level=2))
-    doc.add(Paragraph("Основные расчетные зависимости:"))
-    doc.add(Formula(
-        "y = f(x_1, x_2, ..., x_n)",
-        number=1,
-        explanation="где y — результат; x_i — входные параметры; f — функция преобразования."
-    ))
-
-    # Ход работы
-    doc.add(Heading("Ход работы", level=1))
-
-    if ask_yes_no("Добавить таблицу с результатами?"):
-        doc.add(Paragraph("Результаты измерений представлены в таблице 1."))
-        # Создаем базовую таблицу
-        table_data = [
-            ["№", "Параметр", "Значение", "Погрешность"],
-            ["1", "Измерение 1", "[вставить]", "[вставить]"],
-            ["2", "Измерение 2", "[вставить]", "[вставить]"],
-            ["3", "Измерение 3", "[вставить]", "[вставить]"],
-        ]
-        doc.add(Table("Результаты измерений", table_data))
-
-    if ask_yes_no("Добавить место для скриншота?"):
-        doc.add(Paragraph("На рисунке 1 представлен скриншот результатов выполнения."))
-        doc.add(ImagePlaceholder("Скриншот результатов", height_lines=5))
-
-    # Заключение
-    doc.add(PageBreak())
-    doc.add(Heading("Заключение", level=1))
-    doc.add(Paragraph(
-        "В результате выполнения лабораторной работы были получены необходимые "
-        "результаты. Все поставленные задачи выполнены, цели достигнуты."
-    ))
+        doc.add(Heading(section, level=1))
+        fill_section_interactively(doc, section)
 
     # Добавление номеров страниц
     doc.add_page_numbers_bottom(hide_on_first_page=True)
 
     # Сохранение документа
-    print("\n" + "=" * 50)
-    print("СОЗДАНИЕ ДОКУМЕНТА...")
-    print("=" * 50)
+    print("\n" + "=" * 60)
+    print("💾 СОХРАНЕНИЕ ДОКУМЕНТА...")
+    print("=" * 60)
 
     try:
         path = doc.save()
         print(f"\n✅ Документ успешно создан!")
         print(f"📄 Путь: {path}")
 
-        # Пытаемся открыть документ
-        if ask_yes_no("\nОткрыть созданный документ?"):
+        # Открыть документ
+        if ask_yes_no("\n📂 Открыть созданный документ?"):
             if os.name == 'nt':  # Windows
                 os.startfile(path)
             elif os.name == 'posix':  # Linux/Mac
@@ -176,7 +252,7 @@ def main():
         print(f"\n❌ Ошибка при создании документа: {e}")
         return
 
-    print("\nРабота программы завершена")
+    print("\n✨ Работа программы завершена ✨")
 
 
 if __name__ == "__main__":

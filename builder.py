@@ -161,7 +161,7 @@ class DocBuilder:
         if m["work_title"]:
             self._center_text(m["work_title"], bold=True, space_after=12, line_spacing="one_point_five")
 
-        self._center_text(f'по дисциплине «{m["subject"]}»', space_after=174, line_spacing="one_point_five")
+        self._center_text(f'по дисциплине «{m["subject"]}»', space_after=180, line_spacing="one_point_five")
 
         p = self.doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -171,7 +171,7 @@ class DocBuilder:
         pf.keep_together = True
         pf.widow_control = True
         pf.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-        pf.space_after = Pt(100)  # ← УМЕНЬШИТЬ С 120 ДО 60
+        pf.space_after = Pt(70)  # ← УМЕНЬШИТЬ С 120 ДО 60
 
         lines = []
         if m["group"]:
@@ -307,7 +307,7 @@ class DocBuilder:
         return parts[0] if parts else ""
 
     def _build_default_filename(self) -> str:
-        """Формирует имя файла: РГР ТОП Шикарев И.А. ПО1-23.docx"""
+        """Формирует имя файла: РГР ТОП Шикарев Иван ПО1-23.docx"""
 
         m = self.meta
 
