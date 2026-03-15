@@ -346,32 +346,41 @@ class ReportGeneratorUI(QMainWindow):
 
     def show_shortcuts(self):
         """Показывает список горячих клавиш"""
-        shortcuts_text = """
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Горячие клавиши")
+        msg.setIcon(QMessageBox.Icon.Information)
+
+        text = """
         <h3>⌨️ Горячие клавиши</h3>
 
-        <b>Навигация:</b>
-        • Tab - автозаполнение/следующее поле
-        • Ctrl+↑/↓ - навигация по полям
-        • Alt+1 - вкладка "Основное"
-        • Alt+2 - вкладка "Разделы"
+        <b>Навигация:</b><br>
+        • Tab — автозаполнение/следующее поле<br>
+        • Ctrl+↑/↓ — навигация по полям<br>
+        • Alt+1 — вкладка "Основное"<br>
+        • Alt+2 — вкладка "Разделы"<br>
+        <br>
 
-        <b>Действия:</b>
-        • Ctrl+S - сгенерировать отчет
-        • Ctrl+N - новый отчет (сброс)
-        • Ctrl+Q - выход
+        <b>Действия:</b><br>
+        • Ctrl+S — сгенерировать отчет<br>
+        • Ctrl+N — новый отчет (сброс)<br>
+        • Ctrl+Q — выход<br>
+        <br>
 
-        <b>Разделы:</b>
-        • Ctrl+T - добавить раздел
-        • Ctrl+E - редактировать раздел
-        • Ctrl+R - удалить раздел
-        • F5 - создать все лабы
+        <b>Разделы:</b><br>
+        • Ctrl+T — добавить раздел<br>
+        • Ctrl+E — редактировать раздел<br>
+        • Ctrl+R — удалить раздел<br>
+        • F5 — создать все лабы<br>
+        <br>
 
-        <b>В окне раздела:</b>
-        • Ctrl+Enter - сохранить и закрыть
-        • Esc - закрыть без сохранения
+        <b>В окне раздела:</b><br>
+        • Ctrl+Enter — сохранить и закрыть<br>
+        • Esc — закрыть без сохранения
         """
 
-        QMessageBox.information(self, "Горячие клавиши", shortcuts_text)
+        msg.setText(text)
+        msg.setTextFormat(Qt.TextFormat.RichText)  # ← ВАЖНО!
+        msg.exec()
 
     def eventFilter(self, obj, event):
         """Автозаполнение по Tab"""
